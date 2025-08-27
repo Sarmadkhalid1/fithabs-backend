@@ -5,22 +5,24 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class DailyActivity extends Model
+class Session extends Model
 {
     use HasFactory;
 
+    public $timestamps = false;
+
     protected $fillable = [
-        'date',
+        'id',
         'user_id',
-        'steps',
-        'calories_consumed',
-        'calories_burned',
-        'water_intake',
-        'sleep_time',
-        'daily_progress_percentage',
-        'protein_goal',
-        'carbs_goal',
+        'ip_address',
+        'user_agent',
+        'payload',
+        'last_activity',
     ];
+
+    protected $primaryKey = 'id';
+
+    public $incrementing = false;
 
     // Relationships
     public function user()

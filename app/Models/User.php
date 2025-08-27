@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -10,40 +10,87 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'name',
         'email',
         'password',
+        'gender',
+        'weight',
+        'weight_unit',
+        'height',
+        'height_unit',
+        'goal',
+        'activity_level',
+        'daily_calorie_goal',
+        'daily_steps_goal',
+        'daily_water_goal',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+    ];
+
+    // Relationships
+    public function dailyActivities()
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
+        return $this->hasMany(DailyActivity::class);
+    }
+
+    public function userWorkouts()
+    {
+        return $this->hasMany(UserWorkout::class);
+    }
+
+    public function userMealPlans()
+    {
+        return $this->hasMany(UserMealPlan::class);
+    }
+
+    public function userProgress()
+    {
+        return $this->hasMany(UserProgress::class);
+    }
+
+    public function favorites()
+    {
+        return $this->hasMany(UserFavorite::class);
+    }
+
+    public function chats()
+    {
+        return $this->hasMany(Chat::class);
+    }
+
+    public function aiChats()
+    {
+        return $this->hasMany(AiChat::class);
+    }
+
+    public function searchLogs()
+    {
+        return $this->hasMany(SearchLog::class);
+    }
+
+    public function settings()
+    {
+        return $this->hasMany(UserSetting::class);
+    }
+
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    public function achievements()
+    {
+        return $this->hasMany(UserAchievement::class);
     }
 }
