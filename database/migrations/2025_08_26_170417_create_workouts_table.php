@@ -25,7 +25,7 @@ return new class extends Migration
             $table->boolean('is_featured')->default(false);
             $table->boolean('is_active')->default(true);    
             $table->unsignedBigInteger('created_by_admin');
-            $table->foreign('created_by_admin')->references('id')->on('admins')->onDelete('set null');            $table->timestamps();
+            $table->foreign('created_by_admin')->references('id')->on('admin_users')->onDelete('set null');            $table->timestamps();
         });
     }
 

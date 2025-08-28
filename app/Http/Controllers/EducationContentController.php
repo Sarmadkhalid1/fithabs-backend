@@ -77,4 +77,36 @@ class EducationContentController extends Controller
         $content->delete();
         return response()->json(null, 204);
     }
+
+    /**
+     * Search education content by category or tags.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function search(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'category' => 'nullable|in:training,nutrition,wellness,recovery,mental_health',
+            'tags' => 'nullable|array',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $query = EducationContent::query();
+
+        if ($request->has('category')) {
+            $query->where('category', $request->input('category'));
+        }
+
+        if ($request->has('tags')) {
+            $query->whereJsonContains('tags', $request->input('tags'));
+        }
+
+        $contents = $query->get();
+
+        return response()->json($contents, 200);
+    }
 }

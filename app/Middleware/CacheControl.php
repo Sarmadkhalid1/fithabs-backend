@@ -4,23 +4,25 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Http\Response;
 
 class CacheControl
 {
     /**
      * Handle an incoming request.
      *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \Closure  $next
+     * @return mixed
      */
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next)
     {
         $response = $next($request);
 
+        // Only apply caching headers to successful GET responses
         if ($request->isMethod('GET') && $response->getStatusCode() === 200) {
             $response->header('Cache-Control', 'public, max-age=3600');
-        } else {
-            $response->header('Cache-Control', 'no-cache, no-store, must-revalidate');
+            $response->header('Expires', gmdate('D, d M Y H:i:s T', time() + 3600));
         }
 
         return $response;

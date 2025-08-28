@@ -63,4 +63,34 @@ class SearchLogController extends Controller
         $searchLog->delete();
         return response()->json(null, 204);
     }
+
+    /**
+     * Aggregate recent searches by search type.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function recentSearches(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'search_type' => 'nullable|in:workouts,recipes,education,meal_plans,general',
+            'limit' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $query = SearchLog::query()
+            ->orderBy('created_at', 'desc')
+            ->limit($request->input('limit', 10));
+
+        if ($request->has('search_type')) {
+            $query->where('search_type', $request->input('search_type'));
+        }
+
+        $searches = $query->get();
+
+        return response()->json($searches, 200);
+    }
 }

@@ -2,24 +2,36 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\AdminUser;
+use App\Models\PasswordResetToken;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Validator;
+use Laravel\Sanctum\PersonalAccessToken;
+use Laravel\Socialite\Facades\Socialite;
 
 class AuthController extends Controller
 {
-    // Signup
+    /**
+     * Register a new user.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function register(Request $request)
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|unique:users',
-            'password' => 'required|string|min:6|confirmed',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8|confirmed',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
 
         $user = User::create([
             'name' => $request->name,
@@ -29,91 +41,201 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        return response()->json([
-            'user' => $user,
-            'token' => $token,
-        ], 201);
+        return response()->json(['user' => $user, 'token' => $token], 201);
     }
 
-    // Login
+    /**
+     * Log in a user and issue a token.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function login(Request $request)
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|string|email',
+            'password' => 'required|string',
         ]);
 
-        if (!Auth::attempt($request->only('email', 'password'))) {
-            throw ValidationException::withMessages([
-                'email' => ['Invalid credentials.'],
-            ]);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
         }
 
-        $user = User::where('email', $request->email)->firstOrFail();
+        if (!Auth::attempt($request->only('email', 'password'))) {
+            return response()->json(['error' => 'Invalid credentials'], 401);
+        }
+
+        $user = Auth::user();
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        return response()->json([
-            'user' => $user,
-            'token' => $token,
-        ]);
+        return response()->json(['user' => $user, 'token' => $token], 200);
     }
 
-    // Get logged-in user
+    public function adminLogin(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|string|email|exists:admin_users,email',
+            'password' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+        $user = AdminUser::where('email', $request->email)->first();
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json(['error' => 'Invalid credentials'], 401);
+        }
+       
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json(['user' => $user, 'token' => $token], 200);
+    }
+
+    /**
+     * Initiate a password reset.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function forgotPassword(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|string|email|exists:users,email',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $token = str_random(60);
+        PasswordResetToken::create([
+            'email' => $request->email,
+            'token' => $token,
+            'created_at' => now(),
+        ]);
+
+        // Send email (example, adjust with your mail setup)
+        Mail::raw("Reset your password: " . url('/api/v1/reset-password?token=' . $token), function ($message) use ($request) {
+            $message->to($request->email)->subject('Password Reset Request');
+        });
+
+        return response()->json(['message' => 'Password reset link sent'], 200);
+    }
+
+    /**
+     * Reset password using a token.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function resetPassword(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|string|email|exists:users,email',
+            'token' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $reset = PasswordResetToken::where('email', $request->email)
+            ->where('token', $request->token)
+            ->first();
+
+        if (!$reset) {
+            return response()->json(['error' => 'Invalid token'], 422);
+        }
+
+        $user = User::where('email', $request->email)->first();
+        $user->update(['password' => Hash::make($request->password)]);
+
+        $reset->delete();
+
+        return response()->json(['message' => 'Password reset successfully'], 200);
+    }
+
+    /**
+     * Get the authenticated user.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function me(Request $request)
     {
-        return response()->json($request->user());
+        return response()->json($request->user(), 200);
     }
 
-    // Logout
+    /**
+     * Log out the authenticated user.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
-        return response()->json(['message' => 'Logged out successfully']);
+        return response()->json(['message' => 'Logged out'], 200);
     }
 
-    // Forgot Password (send reset code/email)
-    public function forgotPassword(Request $request)
+    /**
+     * Handle Google OAuth login.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function googleLogin(Request $request)
     {
-        $request->validate(['email' => 'required|email']);
-
-        $status = Password::sendResetLink($request->only('email'));
-
-        return $status === Password::RESET_LINK_SENT
-            ? response()->json(['message' => 'Reset link sent to email'])
-            : response()->json(['message' => 'Unable to send reset link'], 400);
-    }
-
-    // Reset Password
-    public function resetPassword(Request $request)
-    {
-        $request->validate([
-            'token' => 'required',
-            'email' => 'required|email',
-            'password' => 'required|string|min:6|confirmed',
+        $validator = Validator::make($request->all(), [
+            'token' => 'required|string',
         ]);
 
-        $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function ($user, $password) {
-                $user->forceFill([
-                    'password' => Hash::make($password),
-                ])->save();
-            }
-        );
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
 
-        return $status === Password::PASSWORD_RESET
-            ? response()->json(['message' => 'Password reset successful'])
-            : response()->json(['message' => 'Password reset failed'], 400);
+        try {
+            $googleUser = Socialite::driver('google')->stateless()->userFromToken($request->token);
+            $user = User::firstOrCreate(
+                ['email' => $googleUser->email],
+                ['name' => $googleUser->name, 'password' => Hash::make(str_random(16))]
+            );
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+            return response()->json(['user' => $user, 'token' => $token], 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Google login failed'], 401);
+        }
     }
 
-    // TODO: Google / Apple login placeholders
-    public function googleLogin()
+    /**
+     * Handle Apple OAuth login.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function appleLogin(Request $request)
     {
-        return response()->json(['message' => 'Google login not implemented yet']);
-    }
+        $validator = Validator::make($request->all(), [
+            'token' => 'required|string',
+        ]);
 
-    public function appleLogin()
-    {
-        return response()->json(['message' => 'Apple login not implemented yet']);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        try {
+            $appleUser = Socialite::driver('apple')->stateless()->userFromToken($request->token);
+            $user = User::firstOrCreate(
+                ['email' => $appleUser->email],
+                ['name' => $appleUser->name ?? 'Apple User', 'password' => Hash::make(str_random(16))]
+            );
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+            return response()->json(['user' => $user, 'token' => $token], 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Apple login failed'], 401);
+        }
     }
 }

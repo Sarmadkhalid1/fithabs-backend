@@ -79,4 +79,41 @@ class MealPlanController extends Controller
         $mealPlan->delete();
         return response()->json(null, 204);
     }
+
+    /**
+     * Filter meal plans by difficulty, goals, or dietary preferences.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function filter(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'difficulty' => 'nullable|in:easy,medium,hard',
+            'goals' => 'nullable|array',
+            'dietary_preferences' => 'nullable|array',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $query = MealPlan::query();
+
+        if ($request->has('difficulty')) {
+            $query->where('difficulty', $request->input('difficulty'));
+        }
+
+        if ($request->has('goals')) {
+            $query->whereJsonContains('goals', $request->input('goals'));
+        }
+
+        if ($request->has('dietary_preferences')) {
+            $query->whereJsonContains('dietary_preferences', $request->input('dietary_preferences'));
+        }
+
+        $mealPlans = $query->get();
+
+        return response()->json($mealPlans, 200);
+    }
 }

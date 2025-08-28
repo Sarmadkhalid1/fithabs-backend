@@ -95,4 +95,47 @@ class RecipeController extends Controller
         $recipe->delete();
         return response()->json(null, 204);
     }
+
+    /**
+     * Search recipes by name, meal type, dietary tags, or allergen info.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function search(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'query' => 'nullable|string',
+            'meal_type' => 'nullable|in:breakfast,lunch,dinner,snack',
+            'dietary_tags' => 'nullable|array',
+            'allergen_info' => 'nullable|array',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $query = Recipe::query();
+
+        if ($request->has('query')) {
+            $query->where('name', 'like', '%' . $request->input('query') . '%')
+                  ->orWhere('description', 'like', '%' . $request->input('query') . '%');
+        }
+
+        if ($request->has('meal_type')) {
+            $query->where('meal_type', $request->input('meal_type'));
+        }
+
+        if ($request->has('dietary_tags')) {
+            $query->whereJsonContains('dietary_tags', $request->input('dietary_tags'));
+        }
+
+        if ($request->has('allergen_info')) {
+            $query->whereJsonContains('allergen_info', $request->input('allergen_info'));
+        }
+
+        $recipes = $query->get();
+
+        return response()->json($recipes, 200);
+    }
 }
