@@ -25,7 +25,7 @@ return new class extends Migration
             $table->integer('read_time_minutes')->nullable();
             $table->boolean('is_featured')->default(false);
             $table->boolean('is_active')->default(true);
-            $table->foreign('created_by_admin')->references('id')->on('admins')->onDelete('set null');
+            $table->foreign('created_by_admin')->references('id')->on('admin_users')->onDelete('set null');
             $table->timestamps();
         });
     }

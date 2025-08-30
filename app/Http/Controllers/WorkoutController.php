@@ -8,15 +8,76 @@ use Illuminate\Support\Facades\Validator;
 
 class WorkoutController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(Workout::all(), 200);
+        try {
+            $query = Workout::with(['exercises' => function($q) {
+                $q->orderBy('order');
+            }])->where('is_active', true);
+            
+            // Filter by difficulty if provided
+            if ($request->has('difficulty') && $request->input('difficulty')) {
+                $query->where('difficulty', $request->input('difficulty'));
+            }
+            
+            // Filter by type if provided
+            if ($request->has('type') && $request->input('type')) {
+                $query->where('type', $request->input('type'));
+            }
+            
+            $workouts = $query->get();
+            
+            // Add computed fields
+            $workouts->each(function($workout) {
+                $workout->total_exercises = $workout->exercises->count();
+                $workout->total_sets = $workout->exercises->sum('sets');
+            });
+            
+            return response()->json([
+                'status' => 'success',
+                'data' => $workouts,
+                'count' => $workouts->count()
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve workouts',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function show($id)
     {
-        $workout = Workout::findOrFail($id);
-        return response()->json($workout, 200);
+        try {
+            $workout = Workout::with(['exercises' => function($q) {
+                $q->orderBy('order');
+            }])->findOrFail($id);
+            
+            // Add computed fields
+            $workout->total_exercises = $workout->exercises->count();
+            $workout->total_sets = $workout->exercises->sum('sets');
+            $workout->estimated_duration = $workout->exercises->sum(function($exercise) {
+                return ($exercise->duration_seconds ?? 0) + ($exercise->rest_seconds ?? 0);
+            });
+            
+            return response()->json([
+                'status' => 'success',
+                'data' => $workout
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Workout not found',
+                'error' => 'No workout found with the specified ID'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve workout',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function store(Request $request)
@@ -39,8 +100,7 @@ class WorkoutController extends Controller
 
             if ($validator->fails()) {
                 return response()->json([
-                    'status' => 'error',
-                    'message' => 'Validation failed',
+                    'message' => 'The given data was invalid.',
                     'errors' => $validator->errors()
                 ], 422);
             }
@@ -82,18 +142,50 @@ class WorkoutController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        $workout->update($request->all());
-        return response()->json($workout, 200);
+        try {
+            $workout->update($request->all());
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Workout updated successfully',
+                'data' => $workout
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to update workout',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function destroy($id)
     {
-        $workout = Workout::findOrFail($id);
-        $workout->delete();
-        return response()->json(null, 204);
+        try {
+            $workout = Workout::findOrFail($id);
+            $workout->delete();
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Workout deleted successfully'
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Workout not found',
+                'error' => 'No workout found with the specified ID'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to delete workout',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -114,22 +206,208 @@ class WorkoutController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
-        $query = Workout::query();
+        try {
+            $query = Workout::query();
 
-        if ($request->has('difficulty')) {
-            $query->where('difficulty', $request->input('difficulty'));
+            if ($request->has('difficulty') && $request->input('difficulty')) {
+                $query->where('difficulty', $request->input('difficulty'));
+            }
+
+            if ($request->has('type') && $request->input('type')) {
+                $query->where('type', $request->input('type'));
+            }
+
+            if ($request->has('tags') && is_array($request->input('tags')) && !empty($request->input('tags'))) {
+                // Handle tags filtering - check if any of the provided tags exist in the workout tags
+                $tags = $request->input('tags');
+                $query->where(function($q) use ($tags) {
+                    foreach ($tags as $tag) {
+                        $q->orWhereJsonContains('tags', $tag);
+                    }
+                });
+            }
+
+            $workouts = $query->get();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $workouts,
+                'count' => $workouts->count()
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to filter workouts',
+                'error' => $e->getMessage()
+            ], 500);
         }
+    }
 
-        if ($request->has('type')) {
-            $query->where('type', $request->input('type'));
+    /**
+     * Get workouts by difficulty level
+     *
+     * @param string $difficulty
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getByDifficulty($difficulty)
+    {
+        try {
+            $validator = Validator::make(['difficulty' => $difficulty], [
+                'difficulty' => 'required|in:beginner,intermediate,advanced'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid difficulty level',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $workouts = Workout::with(['exercises' => function($q) {
+                $q->orderBy('order');
+            }])
+            ->where('difficulty', $difficulty)
+            ->where('is_active', true)
+            ->get();
+
+            // Add computed fields
+            $workouts->each(function($workout) {
+                $workout->total_exercises = $workout->exercises->count();
+                $workout->total_sets = $workout->exercises->sum('sets');
+            });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $workouts,
+                'count' => $workouts->count(),
+                'difficulty' => $difficulty
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve workouts by difficulty',
+                'error' => $e->getMessage()
+            ], 500);
         }
+    }
 
-        if ($request->has('tags')) {
-            $query->whereJsonContains('tags', $request->input('tags'));
+    /**
+     * Start a workout session for a user
+     *
+     * @param Request $request
+     * @param int $workoutId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function startWorkout(Request $request, $workoutId)
+    {
+        try {
+            $workout = Workout::with(['exercises' => function($q) {
+                $q->orderBy('order');
+            }])->findOrFail($workoutId);
+
+            $user = $request->user();
+
+            // Check if user already has an active workout session
+            $existingSession = $user->userWorkouts()
+                ->where('workout_id', $workoutId)
+                ->whereNull('completed_at')
+                ->first();
+
+            if ($existingSession) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Workout session already active',
+                    'data' => [
+                        'session' => $existingSession,
+                        'workout' => $workout
+                    ]
+                ], 200);
+            }
+
+            // Create new workout session
+            $session = $user->userWorkouts()->create([
+                'workout_id' => $workoutId,
+                'started_at' => now(),
+                'exercise_progress' => []
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Workout session started',
+                'data' => [
+                    'session' => $session,
+                    'workout' => $workout
+                ]
+            ], 201);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Workout not found'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to start workout session',
+                'error' => $e->getMessage()
+            ], 500);
         }
+    }
 
-        $workouts = $query->get();
+    /**
+     * Complete a workout session
+     *
+     * @param Request $request
+     * @param int $sessionId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function completeWorkout(Request $request, $sessionId)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'calories_burned' => 'nullable|integer|min:0',
+                'rating' => 'nullable|integer|min:1|max:5',
+                'notes' => 'nullable|string|max:1000'
+            ]);
 
-        return response()->json($workouts, 200);
+            if ($validator->fails()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid data provided',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $user = $request->user();
+            $session = $user->userWorkouts()->findOrFail($sessionId);
+
+            $session->update([
+                'completed_at' => now(),
+                'calories_burned' => $request->input('calories_burned'),
+                'rating' => $request->input('rating'),
+                'notes' => $request->input('notes')
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Workout completed successfully',
+                'data' => $session->load('workout')
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Workout session not found'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to complete workout',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

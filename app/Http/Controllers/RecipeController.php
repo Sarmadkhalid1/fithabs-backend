@@ -10,13 +10,43 @@ class RecipeController extends Controller
 {
     public function index()
     {
-        return response()->json(Recipe::all(), 200);
+        try {
+            $recipes = Recipe::all();
+            return response()->json([
+                'status' => 'success',
+                'data' => $recipes,
+                'count' => $recipes->count()
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve recipes',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function show($id)
     {
-        $recipe = Recipe::findOrFail($id);
-        return response()->json($recipe, 200);
+        try {
+            $recipe = Recipe::findOrFail($id);
+            return response()->json([
+                'status' => 'success',
+                'data' => $recipe
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Recipe not found',
+                'error' => 'No recipe found with the specified ID'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve recipe',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function store(Request $request)
@@ -46,11 +76,26 @@ class RecipeController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        $recipe = Recipe::create($request->all());
-        return response()->json($recipe, 201);
+        try {
+            $recipe = Recipe::create($request->all());
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Recipe created successfully',
+                'data' => $recipe
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to create recipe',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function update(Request $request, $id)
@@ -82,18 +127,50 @@ class RecipeController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        $recipe->update($request->all());
-        return response()->json($recipe, 200);
+        try {
+            $recipe->update($request->all());
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Recipe updated successfully',
+                'data' => $recipe
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to update recipe',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function destroy($id)
     {
-        $recipe = Recipe::findOrFail($id);
-        $recipe->delete();
-        return response()->json(null, 204);
+        try {
+            $recipe = Recipe::findOrFail($id);
+            $recipe->delete();
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Recipe deleted successfully'
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Recipe not found',
+                'error' => 'No recipe found with the specified ID'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to delete recipe',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -112,30 +189,45 @@ class RecipeController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        $query = Recipe::query();
+        try {
+            $query = Recipe::query();
 
-        if ($request->has('query')) {
-            $query->where('name', 'like', '%' . $request->input('query') . '%')
-                  ->orWhere('description', 'like', '%' . $request->input('query') . '%');
+            if ($request->has('query')) {
+                $query->where('name', 'like', '%' . $request->input('query') . '%')
+                      ->orWhere('description', 'like', '%' . $request->input('query') . '%');
+            }
+
+            if ($request->has('meal_type')) {
+                $query->where('meal_type', $request->input('meal_type'));
+            }
+
+            if ($request->has('dietary_tags')) {
+                $query->whereJsonContains('dietary_tags', $request->input('dietary_tags'));
+            }
+
+            if ($request->has('allergen_info')) {
+                $query->whereJsonContains('allergen_info', $request->input('allergen_info'));
+            }
+
+            $recipes = $query->get();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $recipes,
+                'count' => $recipes->count()
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to search recipes',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        if ($request->has('meal_type')) {
-            $query->where('meal_type', $request->input('meal_type'));
-        }
-
-        if ($request->has('dietary_tags')) {
-            $query->whereJsonContains('dietary_tags', $request->input('dietary_tags'));
-        }
-
-        if ($request->has('allergen_info')) {
-            $query->whereJsonContains('allergen_info', $request->input('allergen_info'));
-        }
-
-        $recipes = $query->get();
-
-        return response()->json($recipes, 200);
     }
 }

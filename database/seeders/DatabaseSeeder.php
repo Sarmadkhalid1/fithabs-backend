@@ -19,6 +19,9 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
         WorkoutSeeder::class,
+        VideoSeeder::class,
+        ExerciseSeeder::class,
+        EducationContentSeeder::class,
     ]); 
 
         // User::factory()->create([

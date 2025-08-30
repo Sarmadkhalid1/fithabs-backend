@@ -16,6 +16,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'age',
         'gender',
         'weight',
         'weight_unit',
@@ -26,6 +27,8 @@ class User extends Authenticatable
         'daily_calorie_goal',
         'daily_steps_goal',
         'daily_water_goal',
+        'dob',
+        'phone',
     ];
 
     protected $hidden = [
@@ -36,6 +39,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'dob' => 'date',
     ];
 
     // Relationships

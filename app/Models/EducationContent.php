@@ -13,19 +13,17 @@ class EducationContent extends Model
         'created_by_admin',
         'title',
         'description',
-        'image_url',
-        'content',
-        'content_type',
-        'video_url',
+        'cover_image',
+        'sections',
         'category',
         'tags',
-        'read_time_minutes',
         'is_featured',
         'is_active',
     ];
 
     protected $casts = [
         'tags' => 'array',
+        'sections' => 'array',
     ];
 
     // Relationships

@@ -63,6 +63,7 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'role' => \App\Http\Middleware\CheckRole::class,
         'permission' => \App\Http\Middleware\CheckPermission::class,
+        'admin.only' => \App\Http\Middleware\AdminOnly::class,
         'validate.json' => \App\Http\Middleware\ValidateJsonFields::class,
         'cache.control' => \App\Http\Middleware\CacheControl::class,
         'professional.access' => \App\Http\Middleware\ProfessionalAccess::class,

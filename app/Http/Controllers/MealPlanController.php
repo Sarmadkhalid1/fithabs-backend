@@ -10,13 +10,43 @@ class MealPlanController extends Controller
 {
     public function index()
     {
-        return response()->json(MealPlan::all(), 200);
+        try {
+            $mealPlans = MealPlan::all();
+            return response()->json([
+                'status' => 'success',
+                'data' => $mealPlans,
+                'count' => $mealPlans->count()
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve meal plans',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function show($id)
     {
-        $mealPlan = MealPlan::findOrFail($id);
-        return response()->json($mealPlan, 200);
+        try {
+            $mealPlan = MealPlan::findOrFail($id);
+            return response()->json([
+                'status' => 'success',
+                'data' => $mealPlan
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Meal plan not found',
+                'error' => 'No meal plan found with the specified ID'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve meal plan',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function store(Request $request)
@@ -38,16 +68,24 @@ class MealPlanController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
         $mealPlan = MealPlan::create($request->all());
-        return response()->json($mealPlan, 201);
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Meal plan created successfully',
+            'data' => $mealPlan
+        ], 201);
     }
 
     public function update(Request $request, $id)
     {
-        $mealPlan = MealPlan::findOrFail($id);
+        try {
+            $mealPlan = MealPlan::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|string|max:255',
@@ -66,18 +104,55 @@ class MealPlanController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
         $mealPlan->update($request->all());
-        return response()->json($mealPlan, 200);
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Meal plan updated successfully',
+            'data' => $mealPlan
+        ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Meal plan not found',
+                'error' => 'No meal plan found with the specified ID'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to update meal plan',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function destroy($id)
     {
-        $mealPlan = MealPlan::findOrFail($id);
-        $mealPlan->delete();
-        return response()->json(null, 204);
+        try {
+            $mealPlan = MealPlan::findOrFail($id);
+            $mealPlan->delete();
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Meal plan deleted successfully'
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Meal plan not found',
+                'error' => 'No meal plan found with the specified ID'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to delete meal plan',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -88,32 +163,47 @@ class MealPlanController extends Controller
      */
     public function filter(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'difficulty' => 'nullable|in:easy,medium,hard',
-            'goals' => 'nullable|array',
-            'dietary_preferences' => 'nullable|array',
+        try {
+            $validator = Validator::make($request->all(), [
+                'difficulty' => 'nullable|in:easy,medium,hard',
+                'goals' => 'nullable|array',
+                        'dietary_preferences' => 'nullable|array',
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        $query = MealPlan::query();
+            $query = MealPlan::query();
 
-        if ($request->has('difficulty')) {
-            $query->where('difficulty', $request->input('difficulty'));
+            if ($request->has('difficulty')) {
+                $query->where('difficulty', $request->input('difficulty'));
+            }
+
+            if ($request->has('goals')) {
+                $query->whereJsonContains('goals', $request->input('goals'));
+            }
+
+            if ($request->has('dietary_preferences')) {
+                $query->whereJsonContains('dietary_preferences', $request->input('dietary_preferences'));
+            }
+
+            $mealPlans = $query->get();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $mealPlans,
+                'count' => $mealPlans->count()
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to filter meal plans',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        if ($request->has('goals')) {
-            $query->whereJsonContains('goals', $request->input('goals'));
-        }
-
-        if ($request->has('dietary_preferences')) {
-            $query->whereJsonContains('dietary_preferences', $request->input('dietary_preferences'));
-        }
-
-        $mealPlans = $query->get();
-
-        return response()->json($mealPlans, 200);
     }
 }
