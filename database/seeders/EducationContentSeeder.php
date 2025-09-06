@@ -27,7 +27,10 @@ class EducationContentSeeder extends Seeder
             [
                 'title' => 'The Complete Guide to Strength Training',
                 'description' => 'Master the fundamentals of strength training with proper form, progressive overload, and effective workout programming.',
-                'cover_image' => $fitnessImageUrls[0],
+                'image_url' => $fitnessImageUrls[0],
+                'content' => 'This comprehensive guide covers everything you need to know about strength training, from basic principles to advanced techniques.',
+                'content_type' => 'article',
+                'read_time_minutes' => 15,
                 'sections' => [
                     [
                         'heading' => 'What is Strength Training?',
@@ -51,7 +54,10 @@ class EducationContentSeeder extends Seeder
             [
                 'title' => 'Yoga for Beginners: Mind, Body, and Soul',
                 'description' => 'Discover the ancient practice of yoga and how it can transform your physical health, mental clarity, and spiritual well-being.',
-                'cover_image' => $fitnessImageUrls[1],
+                'image_url' => $fitnessImageUrls[1],
+                'content' => 'Discover the transformative power of yoga for your physical, mental, and spiritual well-being.',
+                'content_type' => 'article',
+                'read_time_minutes' => 12,
                 'sections' => [
                     [
                         'heading' => 'What is Yoga?',
@@ -75,7 +81,10 @@ class EducationContentSeeder extends Seeder
             [
                 'title' => 'Cardio Training: Heart Health and Endurance',
                 'description' => 'Learn about different types of cardiovascular exercise and how to build an effective cardio routine for optimal heart health.',
-                'cover_image' => $fitnessImageUrls[2],
+                'image_url' => $fitnessImageUrls[2],
+                'content' => 'Learn how to build an effective cardiovascular routine for optimal heart health and fitness.',
+                'content_type' => 'article',
+                'read_time_minutes' => 10,
                 'sections' => [
                     [
                         'heading' => 'Why Cardio Matters',
