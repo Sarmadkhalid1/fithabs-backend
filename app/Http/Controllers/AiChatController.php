@@ -172,8 +172,11 @@ class AiChatController extends Controller
                 })
                 ->toArray();
 
-            // Send to Gemini AI
-            $aiResponse = $this->geminiService->sendMessage($message, $chatHistory);
+            // Get user context for personalized responses
+            $userContext = $this->getUserContext($request->user());
+            
+            // Send to Gemini AI with user context
+            $aiResponse = $this->geminiService->sendMessage($message, $chatHistory, $userContext);
 
             // Save AI response
             $aiMessage = AiChatMessage::create([
@@ -235,5 +238,57 @@ class AiChatController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Get user context for personalized AI responses
+     */
+    private function getUserContext($user): array
+    {
+        if (!$user) {
+            return [];
+        }
+
+        $context = [
+            'name' => $user->name,
+            'age' => $user->age,
+            'gender' => $user->gender,
+            'weight' => $user->weight,
+            'weight_unit' => $user->weight_unit,
+            'height' => $user->height,
+            'height_unit' => $user->height_unit,
+            'goal' => $user->goal,
+            'activity_level' => $user->activity_level,
+            'daily_calorie_goal' => $user->daily_calorie_goal,
+            'daily_steps_goal' => $user->daily_steps_goal,
+            'daily_water_goal' => $user->daily_water_goal,
+        ];
+
+        // Load user preferences if they exist
+        if ($user->userPreferences) {
+            $preferences = $user->userPreferences;
+            $context = array_merge($context, [
+                'dietary_preferences' => $preferences->dietary_preferences,
+                'allergies' => $preferences->allergies,
+                'meal_types' => $preferences->meal_types,
+                'caloric_goal' => $preferences->caloric_goal,
+                'cooking_time_preference' => $preferences->cooking_time_preference,
+                'serving_preference' => $preferences->serving_preference,
+            ]);
+        }
+
+        // Load user goals if they exist
+        if ($user->userGoal) {
+            $context['user_goals'] = [
+                'steps' => $user->userGoal->steps,
+                'calories' => $user->userGoal->calories,
+                'water' => $user->userGoal->water,
+            ];
+        }
+
+        // Remove empty values
+        return array_filter($context, function($value) {
+            return !is_null($value) && $value !== '';
+        });
     }
 }

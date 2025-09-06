@@ -415,15 +415,71 @@ curl -X POST "http://127.0.0.1:8000/api/v1/ai-chats/{chat_id}/send" \
 
 ## AI Capabilities
 
-The AI is powered by Google Gemini and can help with:
+The AI is powered by Google Gemini and provides **personalized responses** based on your profile data. It can help with:
 
-- **Health Questions**: General health advice and tips
-- **Fitness Guidance**: Exercise recommendations and form tips
-- **Nutrition Advice**: Healthy eating and meal planning
-- **Wellness Support**: Stress management and lifestyle tips
-- **General Questions**: Any topic related to health and fitness
+- **Personalized Health Advice**: Tailored recommendations based on your age, gender, weight, and height
+- **Customized Fitness Plans**: Workout suggestions that match your activity level and goals
+- **Dietary Guidance**: Meal recommendations based on your dietary preferences, allergies, and caloric goals
+- **Goal-Oriented Support**: Advice aligned with your specific fitness goals (lose weight, build muscle, etc.)
+- **Wellness Coaching**: Stress management and lifestyle tips personalized to your situation
 
-**Note**: The AI provides general advice and should not replace professional medical consultation.
+### Personalization Features
+
+The AI automatically considers your:
+
+- **Basic Info**: Name, age, gender
+- **Physical Stats**: Weight, height, BMI calculations
+- **Fitness Goals**: Primary goal (lose/gain/maintain weight, build muscle)
+- **Activity Level**: Sedentary, light, moderate, or very active
+- **Daily Targets**: Calorie goals, step goals, water intake goals
+- **Dietary Preferences**: Vegetarian, vegan, allergies, meal type preferences
+- **Cooking Preferences**: Time constraints, serving sizes
+
+**Note**: The AI provides personalized, evidence-based advice but should not replace professional medical consultation. Always consult healthcare professionals for medical concerns.
+
+---
+
+## Personalization System
+
+### How It Works
+
+The AI chat system automatically gathers your profile information to provide personalized responses:
+
+1. **Profile Data Collection**: When you send a message, the system retrieves your:
+   - User profile information (name, age, gender, physical stats)
+   - Fitness goals and activity level
+   - Dietary preferences and allergies
+   - Daily targets and preferences
+
+2. **Context Building**: Your data is formatted into a personalized system prompt that tells the AI:
+   - Who you are and your current situation
+   - Your specific goals and preferences
+   - Any dietary restrictions or preferences
+   - Your activity level and capabilities
+
+3. **Personalized Responses**: The AI uses this context to provide:
+   - Tailored workout recommendations
+   - Customized meal suggestions
+   - Goal-specific advice
+   - Appropriate difficulty levels
+   - Relevant tips and motivation
+
+### Example Personalization
+
+If you're a 25-year-old female who wants to lose weight and is moderately active, the AI will:
+
+- Suggest calorie-appropriate meal plans
+- Recommend cardio-focused workouts
+- Provide weight loss tips
+- Consider your activity level for exercise intensity
+- Use encouraging, supportive language
+
+### Data Privacy
+
+- Your personal data is only used to personalize AI responses
+- No personal information is stored in chat messages
+- All data remains within the FitHabs system
+- You can update your profile anytime to get updated recommendations
 
 ---
 
