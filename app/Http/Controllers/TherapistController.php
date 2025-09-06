@@ -11,7 +11,36 @@ class TherapistController extends Controller
 {
     public function index()
     {
-        return response()->json(Therapist::all(), 200);
+        try {
+            $therapists = Therapist::where('is_active', true)
+                ->with('clinic')
+                ->get()
+                ->map(function($therapist) {
+                    return [
+                        'id' => $therapist->id,
+                        'name' => $therapist->name,
+                        'bio' => $therapist->bio,
+                        'profile_image' => $therapist->profile_image,
+                        'specializations' => $therapist->specializations,
+                        'certifications' => $therapist->certifications,
+                        'phone' => $therapist->phone,
+                        'clinic_name' => $therapist->clinic ? $therapist->clinic->name : null,
+                        'chat_url' => "/api/v1/therapists/{$therapist->id}/chat"
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $therapists,
+                'count' => $therapists->count()
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve therapists',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function show($id)

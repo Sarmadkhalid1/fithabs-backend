@@ -15,8 +15,12 @@ class MealPlanRecipeController extends Controller
 
     public function show($id)
     {
-        $mealPlanRecipe = MealPlanRecipe::findOrFail($id);
-        return response()->json($mealPlanRecipe, 200);
+        $mealPlanRecipe = MealPlanRecipe::with('recipe')->findOrFail($id);
+        
+        return response()->json([
+            'status' => 'success',
+            'data' => $mealPlanRecipe
+        ], 200);
     }
 
     public function store(Request $request)

@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
         VideoSeeder::class,
         ExerciseSeeder::class,
         EducationContentSeeder::class,
+        MealPlanSeeder::class,
     ]); 
 
         // User::factory()->create([

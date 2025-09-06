@@ -11,7 +11,35 @@ class ClinicController extends Controller
 {
     public function index()
     {
-        return response()->json(Clinic::all(), 200);
+        try {
+            $clinics = Clinic::where('is_active', true)
+                ->get()
+                ->map(function($clinic) {
+                    return [
+                        'id' => $clinic->id,
+                        'name' => $clinic->name,
+                        'description' => $clinic->description,
+                        'logo' => $clinic->logo,
+                        'phone' => $clinic->phone,
+                        'address' => $clinic->address,
+                        'website' => $clinic->website,
+                        'services' => $clinic->services,
+                        'chat_url' => "/api/v1/clinics/{$clinic->id}/chat"
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $clinics,
+                'count' => $clinics->count()
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve clinics',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function show($id)

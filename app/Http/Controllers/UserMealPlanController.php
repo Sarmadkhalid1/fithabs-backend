@@ -63,4 +63,85 @@ class UserMealPlanController extends Controller
         $userMealPlan->delete();
         return response()->json(null, 204);
     }
+
+    /**
+     * Get user's current active meal plan
+     */
+    public function current()
+    {
+        try {
+            $user = auth()->user();
+            $currentMealPlan = $user->userMealPlans()
+                ->where('is_active', true)
+                ->where('start_date', '<=', now())
+                ->where('end_date', '>=', now())
+                ->with(['mealPlan.mealPlanRecipes.recipe'])
+                ->first();
+
+            if (!$currentMealPlan) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No active meal plan found'
+                ], 404);
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $currentMealPlan
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve current meal plan',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get user's meal plan for specific date
+     */
+    public function getByDate($date)
+    {
+        try {
+            $validator = Validator::make(['date' => $date], [
+                'date' => 'required|date'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'message' => 'The given data was invalid.',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $user = auth()->user();
+            $mealPlan = $user->userMealPlans()
+                ->where('start_date', '<=', $date)
+                ->where('end_date', '>=', $date)
+                ->with(['mealPlan.mealPlanRecipes' => function($q) use ($date) {
+                    $q->where('day_number', date('j', strtotime($date)))
+                      ->with('recipe');
+                }])
+                ->first();
+
+            if (!$mealPlan) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No meal plan found for the specified date'
+                ], 404);
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $mealPlan
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve meal plan for date',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

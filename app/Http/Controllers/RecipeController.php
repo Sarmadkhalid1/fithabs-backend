@@ -230,4 +230,194 @@ class RecipeController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get recipe of the day
+     */
+    public function recipeOfTheDay()
+    {
+        try {
+            // Get a random featured recipe
+            $recipeOfTheDay = Recipe::where('is_featured', true)
+                                   ->where('is_active', true)
+                                   ->inRandomOrder()
+                                   ->first();
+
+            if (!$recipeOfTheDay) {
+                // Fallback to any active recipe
+                $recipeOfTheDay = Recipe::where('is_active', true)
+                                       ->inRandomOrder()
+                                       ->first();
+            }
+
+            if (!$recipeOfTheDay) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No recipe of the day available'
+                ], 404);
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'id' => $recipeOfTheDay->id,
+                    'name' => $recipeOfTheDay->name,
+                    'image_url' => $recipeOfTheDay->image_url,
+                    'calories_per_serving' => $recipeOfTheDay->calories_per_serving,
+                    'meal_type' => $recipeOfTheDay->meal_type,
+                    'is_favorite' => false, // TODO: Implement user favorites
+                    'tag' => 'Recipe of the day',
+                    'detail_url' => "/api/v1/recipes/{$recipeOfTheDay->id}"
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to get recipe of the day',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get recommended recipes for nutrition screen
+     */
+    public function recommendations()
+    {
+        try {
+            // Get recommended recipes based on different criteria
+            $recommendations = [];
+
+            // Section 1: Quick & Healthy (2 recipes)
+            $quickHealthy = Recipe::where('is_active', true)
+                                  ->where('difficulty', 'easy')
+                                  ->where('calories_per_serving', '<=', 300)
+                                  ->inRandomOrder()
+                                  ->limit(2)
+                                  ->get()
+                                  ->map(function($recipe) {
+                                      return [
+                                          'id' => $recipe->id,
+                                          'name' => $recipe->name,
+                                          'image_url' => $recipe->image_url,
+                                          'calories_per_serving' => $recipe->calories_per_serving,
+                                          'meal_type' => $recipe->meal_type,
+                                          'detail_url' => "/api/v1/recipes/{$recipe->id}"
+                                      ];
+                                  });
+
+            // Section 2: Featured & Popular (3 recipes)
+            $featuredPopular = Recipe::where('is_active', true)
+                                     ->where('is_featured', true)
+                                     ->inRandomOrder()
+                                     ->limit(3)
+                                     ->get()
+                                     ->map(function($recipe) {
+                                         return [
+                                             'id' => $recipe->id,
+                                             'name' => $recipe->name,
+                                             'image_url' => $recipe->image_url,
+                                             'calories_per_serving' => $recipe->calories_per_serving,
+                                             'meal_type' => $recipe->meal_type,
+                                             'detail_url' => "/api/v1/recipes/{$recipe->id}"
+                                         ];
+                                     });
+
+            $recommendations = [
+                'section_1' => $quickHealthy,
+                'section_2' => $featuredPopular
+            ];
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $recommendations
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to get recommendations',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get nutrition screen data (recipe of the day + recommendations)
+     */
+    public function nutritionScreen()
+    {
+        try {
+            // Get recipe of the day
+            $recipeOfTheDay = Recipe::where('is_featured', true)
+                                   ->where('is_active', true)
+                                   ->inRandomOrder()
+                                   ->first();
+
+            if (!$recipeOfTheDay) {
+                $recipeOfTheDay = Recipe::where('is_active', true)
+                                       ->inRandomOrder()
+                                       ->first();
+            }
+
+            // Get recommendations
+            $quickHealthy = Recipe::where('is_active', true)
+                                  ->where('difficulty', 'easy')
+                                  ->where('calories_per_serving', '<=', 300)
+                                  ->inRandomOrder()
+                                  ->limit(2)
+                                  ->get()
+                                  ->map(function($recipe) {
+                                      return [
+                                          'id' => $recipe->id,
+                                          'name' => $recipe->name,
+                                          'image_url' => $recipe->image_url,
+                                          'calories_per_serving' => $recipe->calories_per_serving,
+                                          'meal_type' => $recipe->meal_type
+                                      ];
+                                  });
+
+            $featuredPopular = Recipe::where('is_active', true)
+                                     ->where('is_featured', true)
+                                     ->inRandomOrder()
+                                     ->limit(3)
+                                     ->get()
+                                     ->map(function($recipe) {
+                                         return [
+                                             'id' => $recipe->id,
+                                             'name' => $recipe->name,
+                                             'image_url' => $recipe->image_url,
+                                             'calories_per_serving' => $recipe->calories_per_serving,
+                                             'meal_type' => $recipe->meal_type
+                                         ];
+                                     });
+
+            $nutritionData = [
+                'recipe_of_the_day' => $recipeOfTheDay ? [
+                    'id' => $recipeOfTheDay->id,
+                    'name' => $recipeOfTheDay->name,
+                    'image_url' => $recipeOfTheDay->image_url,
+                    'calories_per_serving' => $recipeOfTheDay->calories_per_serving,
+                    'meal_type' => $recipeOfTheDay->meal_type,
+                    'is_favorite' => false,
+                    'tag' => 'Recipe of the day',
+                    'detail_url' => "/api/v1/recipes/{$recipeOfTheDay->id}"
+                ] : null,
+                'recommendations' => [
+                    'section_1' => $quickHealthy,
+                    'section_2' => $featuredPopular
+                ]
+            ];
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $nutritionData
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to get nutrition screen data',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

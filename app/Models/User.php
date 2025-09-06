@@ -93,8 +93,18 @@ class User extends Authenticatable
         return $this->hasMany(Notification::class);
     }
 
+    public function userPreferences()
+    {
+        return $this->hasOne(UserPreference::class);
+    }
+
     public function achievements()
     {
         return $this->hasMany(UserAchievement::class);
+    }
+
+    public function userGoal()
+    {
+        return $this->hasOne(UserGoal::class);
     }
 }

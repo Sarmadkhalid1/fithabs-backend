@@ -35,6 +35,9 @@ use App\Http\Controllers\UserSettingController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserAchievementController;
 use App\Http\Controllers\VideoController;
+use App\Http\Controllers\UserPreferenceController;
+use App\Http\Controllers\UserGoalController;
+use App\Http\Controllers\HomeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -72,6 +75,15 @@ Route::prefix('v1')->group(function () {
 
     // Password reset token routes (public for reset functionality)
     Route::apiResource('password-reset-tokens', PasswordResetTokenController::class)->only(['store', 'show', 'destroy']);
+
+    // Home screen route (public)
+    Route::get('/home', [HomeController::class, 'index']);
+
+    // Professional listings (public for browsing)
+    Route::get('/coaches', [CoachController::class, 'index']);
+    Route::get('/therapists', [TherapistController::class, 'index']);
+    Route::get('/clinics', [ClinicController::class, 'index']);
+
 
     // Authenticated routes
     Route::middleware(['auth:sanctum'])->group(function () {
@@ -329,8 +341,13 @@ Route::prefix('v1')->group(function () {
         Route::put('workout-sessions/{session}/complete', [WorkoutController::class, 'completeWorkout']);
         Route::apiResource('workouts', WorkoutController::class)->only(['index', 'show']);
         Route::get('recipes/search', [RecipeController::class, 'search']);
+        Route::get('recipes/recipe-of-the-day', [RecipeController::class, 'recipeOfTheDay']);
+        Route::get('recipes/recommendations', [RecipeController::class, 'recommendations']);
+        Route::get('recipes/nutrition-screen', [RecipeController::class, 'nutritionScreen']);
         Route::apiResource('recipes', RecipeController::class)->only(['index', 'show']);
         Route::get('meal-plans/filter', [MealPlanController::class, 'filter']);
+        Route::get('meal-plans/personalized', [MealPlanController::class, 'personalized']);
+        Route::get('meal-plans/meal-type/{mealType}', [MealPlanController::class, 'getByMealType']);
         Route::apiResource('meal-plans', MealPlanController::class)->only(['index', 'show']);
         Route::get('education-contents/search', [EducationContentController::class, 'search']);
         Route::apiResource('education-contents', EducationContentController::class)->only(['index', 'show']);
@@ -346,6 +363,10 @@ Route::prefix('v1')->group(function () {
         Route::get('user-workouts/history', [UserWorkoutController::class, 'getHistory']);
         Route::apiResource('user-workouts', UserWorkoutController::class);
         Route::apiResource('user-meal-plans', UserMealPlanController::class);
+        Route::get('user-meal-plans/current', [UserMealPlanController::class, 'current']);
+        Route::get('user-meal-plans/date/{date}', [UserMealPlanController::class, 'getByDate']);
+        Route::apiResource('user-preferences', UserPreferenceController::class)->only(['show', 'store', 'update']);
+        Route::apiResource('user-goals', UserGoalController::class)->only(['show', 'store', 'update', 'destroy']);
         Route::apiResource('user-progress', UserProgressController::class);
         Route::apiResource('user-favorites', UserFavoriteController::class)->only(['index', 'store', 'destroy']);
         Route::apiResource('user-settings', UserSettingController::class);
@@ -358,8 +379,12 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('chat-messages', ChatMessageController::class)->middleware('throttle:100,1');
         });
 
-        // AI Chat routes
-        Route::apiResource('ai-chats', AiChatController::class);
+        // AI Chat routes (authenticated)
+        Route::get('/ai-chats', [AiChatController::class, 'index']);
+        Route::post('/ai-chats', [AiChatController::class, 'store']);
+        Route::get('/ai-chats/{id}', [AiChatController::class, 'show']);
+        Route::post('/ai-chats/{id}/send', [AiChatController::class, 'sendMessage']);
+        Route::delete('/ai-chats/{id}', [AiChatController::class, 'destroy']);
         Route::apiResource('ai-chat-messages', AiChatMessageController::class)->middleware('throttle:100,1');
 
         // Search log routes with rate limiting
@@ -519,8 +544,17 @@ Route::prefix('v1')->group(function () {
 
     // Professional routes (restricted to respective professional types)
     Route::middleware(['auth:sanctum', 'validate.json'])->group(function () {
-        Route::apiResource('coaches', CoachController::class);
-        Route::apiResource('clinics', ClinicController::class);
-        Route::apiResource('therapists', TherapistController::class);
+        // These routes require authentication and are for professional management
+        Route::post('coaches', [CoachController::class, 'store']);
+        Route::put('coaches/{coach}', [CoachController::class, 'update']);
+        Route::delete('coaches/{coach}', [CoachController::class, 'destroy']);
+        
+        Route::post('clinics', [ClinicController::class, 'store']);
+        Route::put('clinics/{clinic}', [ClinicController::class, 'update']);
+        Route::delete('clinics/{clinic}', [ClinicController::class, 'destroy']);
+        
+        Route::post('therapists', [TherapistController::class, 'store']);
+        Route::put('therapists/{therapist}', [TherapistController::class, 'update']);
+        Route::delete('therapists/{therapist}', [TherapistController::class, 'destroy']);
     });
 });

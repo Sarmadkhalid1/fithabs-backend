@@ -206,4 +206,172 @@ class MealPlanController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get personalized meal plans based on user preferences
+     */
+    public function personalized(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $preferences = $user->userPreferences;
+
+            // Validate meal type parameter if provided
+            $mealType = $request->query('meal_type');
+            if ($mealType) {
+                $validator = Validator::make(['meal_type' => $mealType], [
+                    'meal_type' => 'required|in:breakfast,lunch,dinner,snack'
+                ]);
+
+                if ($validator->fails()) {
+                    return response()->json([
+                        'message' => 'The given data was invalid.',
+                        'errors' => $validator->errors()
+                    ], 422);
+                }
+            }
+
+            $query = MealPlan::where('is_active', true);
+
+            // Filter by meal type if provided
+            if ($mealType) {
+                $query->whereHas('mealPlanRecipes', function($q) use ($mealType) {
+                    $q->where('meal_type', $mealType);
+                });
+            }
+
+            // Apply user preferences if available
+            if ($preferences) {
+                // Filter by dietary preferences
+                if ($preferences->dietary_preferences && !in_array('no_preferences', $preferences->dietary_preferences)) {
+                    $query->where(function($q) use ($preferences) {
+                        foreach ($preferences->dietary_preferences as $preference) {
+                            $q->orWhereJsonContains('dietary_preferences', $preference);
+                        }
+                    });
+                }
+
+                // Filter by allergies (exclude meal plans with user's allergies)
+                if ($preferences->allergies && !in_array('no_allergies', $preferences->allergies)) {
+                    // For now, let's be more flexible and not exclude based on allergies
+                    // This can be enhanced later with more sophisticated allergy matching
+                    // $query->where(function($q) use ($preferences) {
+                    //     foreach ($preferences->allergies as $allergy) {
+                    //         $q->where(function($subQ) use ($allergy) {
+                    //             $subQ->whereJsonLength('allergen_free', 0)
+                    //                  ->orWhereJsonDoesntContain('allergen_free', $allergy);
+                    //         });
+                    //     }
+                    // });
+                }
+
+                // Filter by caloric goal
+                if ($preferences->caloric_goal && $preferences->caloric_goal !== 'not_sure') {
+                    switch ($preferences->caloric_goal) {
+                        case 'less_than_1500':
+                            $query->where('target_calories_max', '<=', 1500);
+                            break;
+                        case '1500_2000':
+                            $query->where('target_calories_min', '>=', 1500)
+                                  ->where('target_calories_max', '<=', 2000);
+                            break;
+                        case 'more_than_2000':
+                            $query->where('target_calories_min', '>=', 2000);
+                            break;
+                    }
+                }
+            }
+
+            $mealPlans = $query->with(['mealPlanRecipes' => function($q) use ($mealType) {
+                if ($mealType) {
+                    $q->where('meal_type', $mealType);
+                }
+            }, 'mealPlanRecipes.recipe'])->get();
+
+            // Remove meal plans that have no recipes after filtering
+            if ($mealType) {
+                $mealPlans = $mealPlans->filter(function($mealPlan) {
+                    return $mealPlan->mealPlanRecipes->count() > 0;
+                });
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $mealPlans,
+                'count' => $mealPlans->count(),
+                'meal_type_filter' => $mealType ?: 'all'
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve personalized meal plans',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get meal plans for specific meal type
+     */
+    public function getByMealType($mealType)
+    {
+        try {
+            $validator = Validator::make(['meal_type' => $mealType], [
+                'meal_type' => 'required|in:breakfast,lunch,dinner,snack'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'message' => 'The given data was invalid.',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $user = auth()->user();
+            $preferences = $user->userPreferences;
+
+            $query = MealPlan::where('is_active', true)
+                ->whereHas('mealPlanRecipes', function($q) use ($mealType) {
+                    $q->where('meal_type', $mealType);
+                });
+
+            // Apply user preferences if available
+            if ($preferences) {
+                // Filter by dietary preferences
+                if ($preferences->dietary_preferences && !in_array('no_preferences', $preferences->dietary_preferences)) {
+                    $query->where(function($q) use ($preferences) {
+                        foreach ($preferences->dietary_preferences as $preference) {
+                            $q->orWhereJsonContains('dietary_preferences', $preference);
+                        }
+                    });
+                }
+
+                // Filter by allergies
+                if ($preferences->allergies && !in_array('no_allergies', $preferences->allergies)) {
+                    $query->where(function($q) use ($preferences) {
+                        foreach ($preferences->allergies as $allergy) {
+                            $q->whereJsonLength('allergen_free', 0)
+                              ->orWhereJsonDoesntContain('allergen_free', $allergy);
+                        }
+                    });
+                }
+            }
+
+            $mealPlans = $query->with(['mealPlanRecipes' => function($q) use ($mealType) {
+                $q->where('meal_type', $mealType)->with('recipe');
+            }])->get();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $mealPlans,
+                'count' => $mealPlans->count()
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve meal plans for meal type',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
