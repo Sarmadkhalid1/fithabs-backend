@@ -13,8 +13,8 @@ class VideoSeeder extends Seeder
      */
     public function run(): void
     {
-        // Clear existing videos
-        Video::truncate();
+        // Clear existing videos (use delete instead of truncate to avoid foreign key issues)
+        Video::query()->delete();
 
         // Create sample placeholder videos
         $videos = [

@@ -13,8 +13,8 @@ class EducationContentSeeder extends Seeder
      */
     public function run(): void
     {
-        // Clear existing education content
-        EducationContent::truncate();
+        // Clear existing education content (use delete instead of truncate to avoid foreign key issues)
+        EducationContent::query()->delete();
 
         // Fitness image URLs provided
         $fitnessImageUrls = [

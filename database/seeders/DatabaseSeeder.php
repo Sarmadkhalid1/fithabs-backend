@@ -18,12 +18,12 @@ class DatabaseSeeder extends Seeder
         \App\Models\User::factory(10)->create();
 
         $this->call([
-        WorkoutSeeder::class,
-        VideoSeeder::class,
-        ExerciseSeeder::class,
-        EducationContentSeeder::class,
-        MealPlanSeeder::class,
-    ]); 
+            WorkoutSeeder::class,
+            ExerciseSeeder::class,
+            VideoSeeder::class,
+            EducationContentSeeder::class,
+            MealPlanSeeder::class,
+        ]); 
 
         // User::factory()->create([
         //     'name' => 'Test User',

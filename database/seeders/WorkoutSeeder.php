@@ -9,8 +9,8 @@ class WorkoutSeeder extends Seeder
 {
     public function run(): void
     {
-        // Clear existing data
-        Workout::truncate();
+        // Clear existing data (use delete instead of truncate to avoid foreign key issues)
+        Workout::query()->delete();
         
         // Working image URLs from Unsplash
         $imageUrls = [

@@ -13,8 +13,8 @@ class ExerciseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Clear existing exercises
-        Exercise::truncate();
+        // Clear existing exercises (use delete instead of truncate to avoid foreign key issues)
+        Exercise::query()->delete();
         
         // Get existing workouts
         $workouts = Workout::all();
