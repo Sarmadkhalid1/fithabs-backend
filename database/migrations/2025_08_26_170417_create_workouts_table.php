@@ -24,8 +24,8 @@ return new class extends Migration
             $table->json('tags')->nullable(); // For better search and filtering
             $table->boolean('is_featured')->default(false);
             $table->boolean('is_active')->default(true);    
-            $table->unsignedBigInteger('created_by_admin');
-            $table->foreign('created_by_admin')->references('id')->on('admin_users')->onDelete('set null');            $table->timestamps();
+            $table->unsignedBigInteger('created_by_admin')->nullable();
+            $table->foreign('created_by_admin')->references('id')->on('admin_users')->onDelete('set null');
         });
     }
 

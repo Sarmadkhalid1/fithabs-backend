@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('education_contents', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('created_by_admin');
+            $table->unsignedBigInteger('created_by_admin')->nullable();
             $table->string('title');
             $table->text('description');
             $table->string('image_url')->nullable();
