@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Recipe;
+use App\Models\Image;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class RecipeController extends Controller
 {
@@ -55,6 +58,7 @@ class RecipeController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'required|string',
             'image_url' => 'nullable|string',
+            'image' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp|max:10240', // 10MB max
             'meal_type' => 'required|in:breakfast,lunch,dinner,snack',
             'prep_time_minutes' => 'nullable|integer|min:0',
             'cook_time_minutes' => 'nullable|integer|min:0',
@@ -83,7 +87,17 @@ class RecipeController extends Controller
         }
 
         try {
-            $recipe = Recipe::create($request->all());
+            $recipeData = $request->except(['image']);
+            $imageUrl = $request->input('image_url');
+
+            // Handle image upload if provided
+            if ($request->hasFile('image')) {
+                $imageUrl = $this->handleImageUpload($request->file('image'), 'recipe');
+            }
+
+            $recipeData['image_url'] = $imageUrl;
+            $recipe = Recipe::create($recipeData);
+            
             return response()->json([
                 'status' => 'success',
                 'message' => 'Recipe created successfully',
@@ -106,6 +120,7 @@ class RecipeController extends Controller
             'name' => 'sometimes|string|max:255',
             'description' => 'sometimes|string',
             'image_url' => 'nullable|string',
+            'image' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp|max:10240', // 10MB max
             'meal_type' => 'sometimes|in:breakfast,lunch,dinner,snack',
             'prep_time_minutes' => 'nullable|integer|min:0',
             'cook_time_minutes' => 'nullable|integer|min:0',
@@ -134,7 +149,15 @@ class RecipeController extends Controller
         }
 
         try {
-            $recipe->update($request->all());
+            $updateData = $request->except(['image']);
+            
+            // Handle image upload if provided
+            if ($request->hasFile('image')) {
+                $imageUrl = $this->handleImageUpload($request->file('image'), 'recipe');
+                $updateData['image_url'] = $imageUrl;
+            }
+
+            $recipe->update($updateData);
             return response()->json([
                 'status' => 'success',
                 'message' => 'Recipe updated successfully',
@@ -419,5 +442,46 @@ class RecipeController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Handle image upload and return the URL
+     */
+    private function handleImageUpload($file, $category = 'other')
+    {
+        $originalName = $file->getClientOriginalName();
+        $extension = $file->getClientOriginalExtension();
+        
+        // Generate unique filename
+        $filename = Str::uuid() . '.' . $extension;
+        
+        // Store the image
+        $path = $file->storeAs('', $filename, 'images');
+        
+        // Generate the correct URL based on the current request
+        $baseUrl = request()->getSchemeAndHttpHost();
+        $url = $baseUrl . '/storage/images/' . $filename;
+
+        // Get image dimensions
+        $imageInfo = getimagesize($file->getPathname());
+        $width = $imageInfo[0] ?? null;
+        $height = $imageInfo[1] ?? null;
+
+        // Create image record
+        Image::create([
+            'title' => $originalName,
+            'description' => 'Uploaded image for ' . $category,
+            'filename' => $originalName,
+            'path' => $path,
+            'url' => $url,
+            'mime_type' => $file->getMimeType(),
+            'file_size' => $file->getSize(),
+            'width' => $width,
+            'height' => $height,
+            'category' => $category,
+            'uploaded_by' => auth()->id(),
+        ]);
+
+        return $url;
     }
 }

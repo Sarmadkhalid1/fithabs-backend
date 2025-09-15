@@ -1,0 +1,16 @@
+# PHP Configuration Override for File Uploads
+# This file should be placed in the public directory
+
+# Increase upload limits
+php_value upload_max_filesize 100M
+php_value post_max_size 100M
+php_value max_file_uploads 20
+php_value max_execution_time 300
+php_value max_input_time 300
+php_value memory_limit 256M
+
+# Enable file uploads
+php_value file_uploads On
+
+# Set temporary directory for uploads
+php_value upload_tmp_dir /tmp

@@ -35,9 +35,11 @@ use App\Http\Controllers\UserSettingController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserAchievementController;
 use App\Http\Controllers\VideoController;
+use App\Http\Controllers\ImageController;
 use App\Http\Controllers\UserPreferenceController;
 use App\Http\Controllers\UserGoalController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\DashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -62,7 +64,7 @@ Route::prefix('v1')->group(function () {
     });
 
     //  Admin user api routes
-    Route::post('/admin-login ', [AuthController::class, 'adminLogin']);
+    Route::post('/admin-login', [AuthController::class, 'adminLogin']);
 
 
     // Authentication routes (public)
@@ -356,8 +358,11 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('videos', VideoController::class)->only(['index', 'show']);
         Route::get('videos/{video}/stream', [VideoController::class, 'stream']);
 
+        // Image routes (authenticated users can view)
+        Route::apiResource('images', ImageController::class)->only(['index', 'show']);
+        Route::get('images/{image}/serve', [ImageController::class, 'serve']);
+
         // User personal routes (users can only access their own data)
-        Route::apiResource('daily-activities', DailyActivityController::class);
         Route::get('user-workouts/stats', [UserWorkoutController::class, 'getStats']);
         Route::get('user-workouts/active', [UserWorkoutController::class, 'getActiveSessions']);
         Route::get('user-workouts/history', [UserWorkoutController::class, 'getHistory']);
@@ -368,7 +373,15 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('user-preferences', UserPreferenceController::class)->only(['show', 'store', 'update']);
         Route::apiResource('user-goals', UserGoalController::class)->only(['show', 'store', 'update', 'destroy']);
         Route::apiResource('user-progress', UserProgressController::class);
+        
+        // Daily Activity / Progress Tracker routes (specific routes must come before resource routes)
+        Route::get('daily-activities/progress-summary', [DailyActivityController::class, 'getProgressSummary']);
+        Route::post('daily-activities/update', [DailyActivityController::class, 'updateDailyActivity']);
+        Route::get('daily-activities/date-range', [DailyActivityController::class, 'getDateRange']);
+        Route::apiResource('daily-activities', DailyActivityController::class);
+        
         Route::apiResource('user-favorites', UserFavoriteController::class)->only(['index', 'store', 'destroy']);
+        Route::post('user-favorites/remove-by-item', [UserFavoriteController::class, 'removeByItem']);
         Route::apiResource('user-settings', UserSettingController::class);
         Route::apiResource('notifications', NotificationController::class);
         Route::apiResource('user-achievements', UserAchievementController::class);
@@ -408,6 +421,14 @@ Route::prefix('v1')->group(function () {
                 return response()->json(['error' => 'Admin access required'], 403);
             }
             return response()->json(['message' => 'Admin access granted']);
+        });
+        
+        // Dashboard route (admin only)
+        Route::get('/dashboard', function (\Illuminate\Http\Request $request) {
+            if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
+                return response()->json(['error' => 'Admin access required'], 403);
+            }
+            return app(\App\Http\Controllers\DashboardController::class)->index();
         });
         
         Route::get('/admin-users', function (\Illuminate\Http\Request $request) {
@@ -465,6 +486,64 @@ Route::prefix('v1')->group(function () {
                 return response()->json(['error' => 'Admin access required'], 403);
             }
             return app(\App\Http\Controllers\RecipeController::class)->destroy($recipe);
+        });
+        
+        // Coach management routes (admin only)
+        Route::get('/coaches', function (\Illuminate\Http\Request $request) {
+            if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
+                return response()->json(['error' => 'Admin access required'], 403);
+            }
+            return app(\App\Http\Controllers\CoachController::class)->adminIndex($request);
+        });
+        
+        Route::post('/coaches', function (\Illuminate\Http\Request $request) {
+            if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
+                return response()->json(['error' => 'Admin access required'], 403);
+            }
+            return app(\App\Http\Controllers\CoachController::class)->store($request);
+        });
+        
+        Route::put('/coaches/{coach}', function (\Illuminate\Http\Request $request, $coach) {
+            if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
+                return response()->json(['error' => 'Admin access required'], 403);
+            }
+            return app(\App\Http\Controllers\CoachController::class)->update($request, $coach);
+        });
+        
+        Route::delete('/coaches/{coach}', function (\Illuminate\Http\Request $request, $coach) {
+            if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
+                return response()->json(['error' => 'Admin access required'], 403);
+            }
+            return app(\App\Http\Controllers\CoachController::class)->destroy($coach);
+        });
+        
+        // Clinic management routes (admin only)
+        Route::get('/clinics', function (\Illuminate\Http\Request $request) {
+            if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
+                return response()->json(['error' => 'Admin access required'], 403);
+            }
+            return app(\App\Http\Controllers\ClinicController::class)->adminIndex($request);
+        });
+        
+        Route::post('/clinics', function (\Illuminate\Http\Request $request) {
+            if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
+                return response()->json(['error' => 'Admin access required'], 403);
+            }
+            return app(\App\Http\Controllers\ClinicController::class)->store($request);
+        });
+        
+        Route::put('/clinics/{clinic}', function (\Illuminate\Http\Request $request, $clinic) {
+            if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
+                return response()->json(['error' => 'Admin access required'], 403);
+            }
+            return app(\App\Http\Controllers\ClinicController::class)->update($request, $clinic);
+        });
+        
+        Route::delete('/clinics/{clinic}', function (\Illuminate\Http\Request $request, $clinic) {
+            if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
+                return response()->json(['error' => 'Admin access required'], 403);
+            }
+            return app(\App\Http\Controllers\ClinicController::class)->destroy($clinic);
         });
         
         Route::post('/meal-plans', function (\Illuminate\Http\Request $request) {
@@ -530,12 +609,36 @@ Route::prefix('v1')->group(function () {
             }
             return app(\App\Http\Controllers\VideoController::class)->destroy($video);
         });
+        
+        // Image management routes (admin only)
+        Route::post('/images', function (\Illuminate\Http\Request $request) {
+            if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
+                return response()->json(['error' => 'Admin access required'], 403);
+            }
+            return app(\App\Http\Controllers\ImageController::class)->store($request);
+        });
+        
+        Route::put('/images/{image}', function (\Illuminate\Http\Request $request, $image) {
+            if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
+                return response()->json(['error' => 'Admin access required'], 403);
+            }
+            return app(\App\Http\Controllers\ImageController::class)->update($request, $image);
+        });
+        
+        Route::delete('/images/{image}', function (\Illuminate\Http\Request $request, $image) {
+            if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
+                return response()->json(['error' => 'Admin access required'], 403);
+            }
+            return app(\App\Http\Controllers\ImageController::class)->destroy($image);
+        });
     });
 
     // Content creation routes (restricted to editor or super_admin)
     Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('exercises', ExerciseController::class);
         Route::get('workouts/{workout}/exercises', [ExerciseController::class, 'getWorkoutExercises']);
+        Route::post('exercises/debug-upload', [ExerciseController::class, 'debugUpload']);
+        Route::post('exercises/simple-upload-test', [ExerciseController::class, 'simpleUploadTest']);
         Route::get('workouts/{workout}/exercises/next/{exercise?}', [ExerciseController::class, 'getNextExercise']);
         Route::get('workouts/{workout}/exercises/previous/{exercise}', [ExerciseController::class, 'getPreviousExercise']);
         Route::put('workout-sessions/{session}/exercises/{exercise}/progress', [ExerciseController::class, 'updateExerciseProgress']);
@@ -545,13 +648,7 @@ Route::prefix('v1')->group(function () {
     // Professional routes (restricted to respective professional types)
     Route::middleware(['auth:sanctum', 'validate.json'])->group(function () {
         // These routes require authentication and are for professional management
-        Route::post('coaches', [CoachController::class, 'store']);
-        Route::put('coaches/{coach}', [CoachController::class, 'update']);
-        Route::delete('coaches/{coach}', [CoachController::class, 'destroy']);
-        
-        Route::post('clinics', [ClinicController::class, 'store']);
-        Route::put('clinics/{clinic}', [ClinicController::class, 'update']);
-        Route::delete('clinics/{clinic}', [ClinicController::class, 'destroy']);
+        // Note: Coach and Clinic routes are handled in admin section above
         
         Route::post('therapists', [TherapistController::class, 'store']);
         Route::put('therapists/{therapist}', [TherapistController::class, 'update']);

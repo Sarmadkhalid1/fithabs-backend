@@ -2,20 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Video;
+use App\Models\Image;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Intervention\Image\Facades\Image as ImageIntervention;
 
-class VideoController extends Controller
+class ImageController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
-        $query = Video::where('is_active', true);
+        $query = Image::where('is_active', true);
 
         // Filter by category
         if ($request->has('category')) {
@@ -31,12 +32,12 @@ class VideoController extends Controller
             });
         }
 
-        $videos = $query->orderBy('created_at', 'desc')
+        $images = $query->orderBy('created_at', 'desc')
                        ->paginate($request->get('per_page', 15));
 
         return response()->json([
             'success' => true,
-            'data' => $videos,
+            'data' => $images,
         ]);
     }
 
@@ -48,8 +49,8 @@ class VideoController extends Controller
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'video' => 'required|file|mimes:mp4,avi,mov,wmv,flv,webm|max:102400', // 100MB max
-            'category' => 'required|in:exercise,workout,tutorial,other',
+            'image' => 'required|file|mimes:jpeg,jpg,png,gif,webp|max:10240', // 10MB max
+            'category' => 'required|in:workout,recipe,meal_plan,education,profile,other',
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:50',
         ]);
@@ -63,22 +64,27 @@ class VideoController extends Controller
         }
 
         try {
-            $file = $request->file('video');
+            $file = $request->file('image');
             $originalName = $file->getClientOriginalName();
             $extension = $file->getClientOriginalExtension();
             
             // Generate unique filename
             $filename = Str::uuid() . '.' . $extension;
             
-            // Store the video
-            $path = $file->storeAs('', $filename, 'videos');
+            // Store the image
+            $path = $file->storeAs('', $filename, 'images');
             
             // Generate the correct URL based on the current request
             $baseUrl = request()->getSchemeAndHttpHost();
-            $url = $baseUrl . '/storage/videos/' . $filename;
+            $url = $baseUrl . '/storage/images/' . $filename;
 
-            // Create video record
-            $video = Video::create([
+            // Get image dimensions
+            $imageInfo = getimagesize($file->getPathname());
+            $width = $imageInfo[0] ?? null;
+            $height = $imageInfo[1] ?? null;
+
+            // Create image record
+            $image = Image::create([
                 'title' => $request->title,
                 'description' => $request->description,
                 'filename' => $originalName,
@@ -86,21 +92,23 @@ class VideoController extends Controller
                 'url' => $url,
                 'mime_type' => $file->getMimeType(),
                 'file_size' => $file->getSize(),
+                'width' => $width,
+                'height' => $height,
                 'category' => $request->category,
                 'tags' => $request->tags,
-                'uploaded_by' => auth()->id(), // Assuming admin is logged in
+                'uploaded_by' => auth()->id(),
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Video uploaded successfully',
-                'data' => $video,
+                'message' => 'Image uploaded successfully',
+                'data' => $image,
             ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to upload video: ' . $e->getMessage(),
+                'message' => 'Failed to upload image: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -108,23 +116,23 @@ class VideoController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Video $video)
+    public function show(Image $image)
     {
         return response()->json([
             'success' => true,
-            'data' => $video,
+            'data' => $image,
         ]);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Video $video)
+    public function update(Request $request, Image $image)
     {
         $validator = Validator::make($request->all(), [
             'title' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
-            'category' => 'sometimes|required|in:exercise,workout,tutorial,other',
+            'category' => 'sometimes|required|in:workout,recipe,meal_plan,education,profile,other',
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:50',
             'is_active' => 'sometimes|boolean',
@@ -138,71 +146,65 @@ class VideoController extends Controller
             ], 422);
         }
 
-        $video->update($request->only([
+        $image->update($request->only([
             'title', 'description', 'category', 'tags', 'is_active'
         ]));
 
         return response()->json([
             'success' => true,
-            'message' => 'Video updated successfully',
-            'data' => $video,
+            'message' => 'Image updated successfully',
+            'data' => $image,
         ]);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Video $video)
+    public function destroy(Image $image)
     {
         try {
-            // Delete the video file
-            Storage::disk('videos')->delete($video->path);
-            
-            // Delete thumbnail if exists
-            if ($video->thumbnail_path) {
-                Storage::disk('videos')->delete($video->thumbnail_path);
-            }
+            // Delete the image file
+            Storage::disk('images')->delete($image->path);
 
             // Delete the record
-            $video->delete();
+            $image->delete();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Video deleted successfully',
+                'message' => 'Image deleted successfully',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to delete video: ' . $e->getMessage(),
+                'message' => 'Failed to delete image: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Serve video file for streaming
+     * Serve image file
      */
-    public function stream(Video $video)
+    public function serve(Image $image)
     {
-        if (!$video->is_active) {
+        if (!$image->is_active) {
             return response()->json([
                 'success' => false,
-                'message' => 'Video not available',
+                'message' => 'Image not available',
             ], 404);
         }
 
-        $path = Storage::disk('videos')->path($video->path);
+        $path = Storage::disk('images')->path($image->path);
         
         if (!file_exists($path)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Video file not found',
+                'message' => 'Image file not found',
             ], 404);
         }
 
         return response()->file($path, [
-            'Content-Type' => $video->mime_type,
-            'Accept-Ranges' => 'bytes',
+            'Content-Type' => $image->mime_type,
         ]);
     }
 }

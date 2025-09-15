@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\EducationContent;
+use App\Models\Image;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class EducationContentController extends Controller
 {
@@ -87,6 +90,7 @@ class EducationContentController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'cover_image' => 'nullable|string|url',
+            'image' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp|max:10240', // 10MB max
             'sections' => 'required|array|min:1',
             'sections.*.heading' => 'required|string|max:255',
             'sections.*.content' => 'required|string',
@@ -105,11 +109,15 @@ class EducationContentController extends Controller
         }
 
         try {
-            $data = $request->only([
-                'title', 'description', 'cover_image', 'sections', 
-                'category', 'tags', 'is_featured', 'is_active'
-            ]);
-            
+            $data = $request->except(['image']);
+            $coverImageUrl = $request->input('cover_image');
+
+            // Handle image upload if provided
+            if ($request->hasFile('image')) {
+                $coverImageUrl = $this->handleImageUpload($request->file('image'), 'education');
+            }
+
+            $data['cover_image'] = $coverImageUrl;
             $data['created_by_admin'] = auth()->id() ?? 1; // Default to admin ID 1 if not authenticated
             
             $content = EducationContent::create($data);
@@ -147,13 +155,13 @@ class EducationContentController extends Controller
             'created_by_admin' => 'sometimes|exists:admin_users,id',
             'title' => 'sometimes|string|max:255',
             'description' => 'sometimes|string',
-            'image_url' => 'nullable|string',
-            'content' => 'sometimes|string',
-            'content_type' => 'sometimes|in:article,video,infographic,guide',
-            'video_url' => 'nullable|string|url',
+            'cover_image' => 'nullable|string|url',
+            'image' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp|max:10240', // 10MB max
+            'sections' => 'sometimes|array',
+            'sections.*.heading' => 'required_with:sections|string|max:255',
+            'sections.*.content' => 'required_with:sections|string',
             'category' => 'sometimes|in:training,nutrition,wellness,recovery,mental_health',
             'tags' => 'nullable|array',
-            'read_time_minutes' => 'nullable|integer|min:0',
             'is_featured' => 'sometimes|boolean',
             'is_active' => 'sometimes|boolean',
         ]);
@@ -166,7 +174,15 @@ class EducationContentController extends Controller
         }
 
         try {
-            $content->update($request->all());
+            $updateData = $request->except(['image']);
+            
+            // Handle image upload if provided
+            if ($request->hasFile('image')) {
+                $coverImageUrl = $this->handleImageUpload($request->file('image'), 'education');
+                $updateData['cover_image'] = $coverImageUrl;
+            }
+
+            $content->update($updateData);
             return response()->json([
                 'status' => 'success',
                 'message' => 'Education content updated successfully',
@@ -250,5 +266,46 @@ class EducationContentController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Handle image upload and return the URL
+     */
+    private function handleImageUpload($file, $category = 'other')
+    {
+        $originalName = $file->getClientOriginalName();
+        $extension = $file->getClientOriginalExtension();
+        
+        // Generate unique filename
+        $filename = Str::uuid() . '.' . $extension;
+        
+        // Store the image
+        $path = $file->storeAs('', $filename, 'images');
+        
+        // Generate the correct URL based on the current request
+        $baseUrl = request()->getSchemeAndHttpHost();
+        $url = $baseUrl . '/storage/images/' . $filename;
+
+        // Get image dimensions
+        $imageInfo = getimagesize($file->getPathname());
+        $width = $imageInfo[0] ?? null;
+        $height = $imageInfo[1] ?? null;
+
+        // Create image record
+        Image::create([
+            'title' => $originalName,
+            'description' => 'Uploaded image for ' . $category,
+            'filename' => $originalName,
+            'path' => $path,
+            'url' => $url,
+            'mime_type' => $file->getMimeType(),
+            'file_size' => $file->getSize(),
+            'width' => $width,
+            'height' => $height,
+            'category' => $category,
+            'uploaded_by' => auth()->id(),
+        ]);
+
+        return $url;
     }
 }

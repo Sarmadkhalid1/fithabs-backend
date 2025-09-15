@@ -6,6 +6,8 @@ use App\Models\Exercise;
 use App\Models\Workout;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ExerciseController extends Controller
 {
@@ -60,7 +62,11 @@ class ExerciseController extends Controller
 
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        try {
+        // Create validation data without file fields to avoid Laravel's file validation
+        $validationData = $request->except(['video', 'image']);
+        
+        $validator = Validator::make($validationData, [
             'workout_id' => 'required|exists:workouts,id',
             'name' => 'required|string|max:255',
             'instructions' => 'nullable|string',
@@ -74,21 +80,191 @@ class ExerciseController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
-        }
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
 
-        $exercise = Exercise::create($request->all());
-        return response()->json($exercise, 201);
+            $data = $request->only([
+                'workout_id', 'name', 'instructions', 'duration_seconds',
+                'repetitions', 'sets', 'rest_seconds', 'order'
+            ]);
+
+            // Handle image upload with comprehensive validation
+            if ($request->hasFile('image')) {
+                try {
+                    $imageFile = $request->file('image');
+                    
+                    // Comprehensive file validation
+                    $allowedImageTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
+                    $allowedImageExtensions = ['jpeg', 'png', 'jpg', 'gif', 'webp'];
+                    
+                    // Check file size
+                    if ($imageFile->getSize() <= 0) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Image upload failed',
+                            'error' => 'Image file is empty or corrupted'
+                        ], 422);
+                    }
+                    
+                    // Check file size (10MB = 10485760 bytes)
+                    $maxImageSize = 10485760;
+                    if ($imageFile->getSize() > $maxImageSize) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Image upload failed',
+                            'error' => 'Image file is too large. Maximum size: 10MB'
+                        ], 422);
+                    }
+                    
+                    // Check MIME type
+                    $mimeType = $imageFile->getMimeType();
+                    if (!in_array($mimeType, $allowedImageTypes)) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Image upload failed',
+                            'error' => 'Invalid image file type. Allowed: ' . implode(', ', $allowedImageExtensions)
+                        ], 422);
+                    }
+                    
+                    // Check file extension
+                    $extension = strtolower($imageFile->getClientOriginalExtension());
+                    if (!in_array($extension, $allowedImageExtensions)) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Image upload failed',
+                            'error' => 'Invalid image file extension. Allowed: ' . implode(', ', $allowedImageExtensions)
+                        ], 422);
+                    }
+                    
+                    // Generate unique filename
+                    $imageName = 'exercise_' . time() . '_' . Str::random(10) . '.' . $extension;
+                    $imagePath = $imageFile->storeAs('exercises/images', $imageName, 'public');
+                    
+                    if (!$imagePath) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Failed to store image file',
+                            'error' => 'Storage error - check directory permissions'
+                        ], 500);
+                    }
+                    
+                    $data['image_url'] = request()->getSchemeAndHttpHost() . Storage::url($imagePath);
+                    
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Image upload failed',
+                        'error' => $e->getMessage()
+                    ], 422);
+                }
+            } elseif ($request->has('image_url')) {
+                $data['image_url'] = $request->input('image_url');
+            }
+
+            // Handle video upload with comprehensive validation
+            if ($request->hasFile('video')) {
+                try {
+                    $videoFile = $request->file('video');
+                    
+                    // Comprehensive file validation
+                    $allowedVideoTypes = ['video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/flv', 'video/webm'];
+                    $allowedVideoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm'];
+                    
+                    // Check file size
+                    if ($videoFile->getSize() <= 0) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Video upload failed',
+                            'error' => 'Video file is empty or corrupted'
+                        ], 422);
+                    }
+                    
+                    // Check file size (100MB = 104857600 bytes)
+                    $maxVideoSize = 104857600;
+                    if ($videoFile->getSize() > $maxVideoSize) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Video upload failed',
+                            'error' => 'Video file is too large. Maximum size: 100MB'
+                        ], 422);
+                    }
+                    
+                    // Check MIME type
+                    $mimeType = $videoFile->getMimeType();
+                    if (!in_array($mimeType, $allowedVideoTypes)) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Video upload failed',
+                            'error' => 'Invalid video file type. Allowed: ' . implode(', ', $allowedVideoExtensions)
+                        ], 422);
+                    }
+                    
+                    // Check file extension
+                    $extension = strtolower($videoFile->getClientOriginalExtension());
+                    if (!in_array($extension, $allowedVideoExtensions)) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Video upload failed',
+                            'error' => 'Invalid video file extension. Allowed: ' . implode(', ', $allowedVideoExtensions)
+                        ], 422);
+                    }
+                    
+                    // Generate unique filename
+                    $videoName = 'exercise_' . time() . '_' . Str::random(10) . '.' . $extension;
+                    $videoPath = $videoFile->storeAs('exercises/videos', $videoName, 'public');
+                    
+                    if (!$videoPath) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Failed to store video file',
+                            'error' => 'Storage error - check directory permissions'
+                        ], 500);
+                    }
+                    
+                    $data['video_url'] = request()->getSchemeAndHttpHost() . Storage::url($videoPath);
+                    
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Video upload failed',
+                        'error' => $e->getMessage()
+                    ], 422);
+                }
+            } elseif ($request->has('video_url')) {
+                $data['video_url'] = $request->input('video_url');
+            }
+
+            $exercise = Exercise::create($data);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Exercise created successfully',
+                'data' => $exercise
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to create exercise',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function update(Request $request, $id)
     {
+        try {
         $exercise = Exercise::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
             'workout_id' => 'sometimes|exists:workouts,id',
             'name' => 'sometimes|string|max:255',
             'instructions' => 'nullable|string',
+                'video' => 'nullable|file|mimes:mp4,avi,mov,wmv,flv,webm', // Remove max size validation
+                'image' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp', // Remove max size validation
             'video_url' => 'nullable|string|url',
             'image_url' => 'nullable|string',
             'duration_seconds' => 'nullable|integer|min:0',
@@ -99,11 +275,69 @@ class ExerciseController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
-        }
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
 
-        $exercise->update($request->all());
-        return response()->json($exercise, 200);
+            $data = $request->only([
+                'workout_id', 'name', 'instructions', 'duration_seconds',
+                'repetitions', 'sets', 'rest_seconds', 'order'
+            ]);
+
+            // Handle image upload
+            if ($request->hasFile('image')) {
+                // Delete old image if exists
+                if ($exercise->image_url) {
+                    $oldImagePath = str_replace('/storage/', '', $exercise->image_url);
+                    Storage::disk('public')->delete($oldImagePath);
+                }
+                
+                $imageFile = $request->file('image');
+                $imageName = 'exercise_' . time() . '_' . Str::random(10) . '.' . $imageFile->getClientOriginalExtension();
+                $imagePath = $imageFile->storeAs('exercises/images', $imageName, 'public');
+                $data['image_url'] = request()->getSchemeAndHttpHost() . Storage::url($imagePath);
+            } elseif ($request->has('image_url')) {
+                $data['image_url'] = $request->input('image_url');
+            }
+
+            // Handle video upload
+            if ($request->hasFile('video')) {
+                // Delete old video if exists
+                if ($exercise->video_url) {
+                    $oldVideoPath = str_replace('/storage/', '', $exercise->video_url);
+                    Storage::disk('public')->delete($oldVideoPath);
+                }
+                
+                $videoFile = $request->file('video');
+                $videoName = 'exercise_' . time() . '_' . Str::random(10) . '.' . $videoFile->getClientOriginalExtension();
+                $videoPath = $videoFile->storeAs('exercises/videos', $videoName, 'public');
+                $data['video_url'] = request()->getSchemeAndHttpHost() . Storage::url($videoPath);
+            } elseif ($request->has('video_url')) {
+                $data['video_url'] = $request->input('video_url');
+            }
+
+            $exercise->update($data);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Exercise updated successfully',
+                'data' => $exercise
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Exercise not found'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to update exercise',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function destroy($id)
@@ -319,6 +553,112 @@ class ExerciseController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to update exercise progress',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Simple file upload test - minimal endpoint
+     */
+    public function simpleUploadTest(Request $request)
+    {
+        try {
+            $result = [
+                'has_files' => $request->hasFile('test_file'),
+                'all_files' => $request->allFiles(),
+                'php_upload_max_filesize' => ini_get('upload_max_filesize'),
+                'php_post_max_size' => ini_get('post_max_size'),
+            ];
+            
+            if ($request->hasFile('test_file')) {
+                $file = $request->file('test_file');
+                $result['file_info'] = [
+                    'is_valid' => $file->isValid(),
+                    'size' => $file->getSize(),
+                    'mime_type' => $file->getMimeType(),
+                    'original_name' => $file->getClientOriginalName(),
+                    'error' => $file->getErrorMessage(),
+                    'error_code' => $file->getError(),
+                ];
+                
+                if ($file->isValid()) {
+                    // Try to store the file
+                    $path = $file->store('test_uploads', 'public');
+                    $result['stored_path'] = $path;
+                    $result['storage_url'] = Storage::url($path);
+                }
+            }
+            
+            return response()->json([
+                'status' => 'success',
+                'result' => $result
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Test failed',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Debug file upload - temporary endpoint for testing
+     */
+    public function debugUpload(Request $request)
+    {
+        try {
+            $debug = [
+                'has_video' => $request->hasFile('video'),
+                'has_image' => $request->hasFile('image'),
+                'all_files' => $request->allFiles(),
+                'php_upload_max_filesize' => ini_get('upload_max_filesize'),
+                'php_post_max_size' => ini_get('post_max_size'),
+                'php_max_file_uploads' => ini_get('max_file_uploads'),
+                'php_max_execution_time' => ini_get('max_execution_time'),
+                'php_memory_limit' => ini_get('memory_limit'),
+                'upload_tmp_dir' => ini_get('upload_tmp_dir'),
+                'temp_dir' => sys_get_temp_dir(),
+                'request_size' => strlen(file_get_contents('php://input')),
+            ];
+            
+            if ($request->hasFile('video')) {
+                $videoFile = $request->file('video');
+                $debug['video_info'] = [
+                    'is_valid' => $videoFile->isValid(),
+                    'size' => $videoFile->getSize(),
+                    'mime_type' => $videoFile->getMimeType(),
+                    'original_name' => $videoFile->getClientOriginalName(),
+                    'extension' => $videoFile->getClientOriginalExtension(),
+                    'error' => $videoFile->getErrorMessage(),
+                    'error_code' => $videoFile->getError(),
+                    'max_size_bytes' => $videoFile->getMaxFilesize(),
+                ];
+            }
+            
+            if ($request->hasFile('image')) {
+                $imageFile = $request->file('image');
+                $debug['image_info'] = [
+                    'is_valid' => $imageFile->isValid(),
+                    'size' => $imageFile->getSize(),
+                    'mime_type' => $imageFile->getMimeType(),
+                    'original_name' => $imageFile->getClientOriginalName(),
+                    'extension' => $imageFile->getClientOriginalExtension(),
+                    'error' => $imageFile->getErrorMessage(),
+                    'error_code' => $imageFile->getError(),
+                    'max_size_bytes' => $imageFile->getMaxFilesize(),
+                ];
+            }
+            
+            return response()->json([
+                'status' => 'success',
+                'debug' => $debug
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Debug failed',
                 'error' => $e->getMessage()
             ], 500);
         }
