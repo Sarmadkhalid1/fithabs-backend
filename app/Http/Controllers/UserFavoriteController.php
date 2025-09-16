@@ -51,7 +51,7 @@ class UserFavoriteController extends Controller
                     // Transform education content like in EducationContentController
                     $transformedItem = [
                         'id' => $item->id,
-                        'coverImage' => $item->cover_image,
+                        'coverImage' => $item->image_url,
                         'title' => $item->title,
                         'description' => $item->description,
                         'sections' => $item->sections,

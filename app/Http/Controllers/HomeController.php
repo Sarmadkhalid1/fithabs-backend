@@ -44,7 +44,7 @@ class HomeController extends Controller
                         'id' => $content->id,
                         'title' => $content->title,
                         'description' => $content->description,
-                        'cover_image' => $content->cover_image,
+                        'cover_image' => $content->image_url,
                         'category' => $content->category,
                         'detail_url' => "/api/v1/education-contents/{$content->id}"
                     ];

@@ -20,7 +20,7 @@ class EducationContentController extends Controller
             $transformedContents = $contents->map(function ($content) {
                 return [
                     'id' => $content->id,
-                    'coverImage' => $content->cover_image,
+                    'coverImage' => $content->image_url,
                     'title' => $content->title,
                     'description' => $content->description,
                     'sections' => $content->sections,
@@ -54,7 +54,7 @@ class EducationContentController extends Controller
             // Transform single content to match the desired structure
             $transformedContent = [
                 'id' => $content->id,
-                'coverImage' => $content->cover_image,
+                'coverImage' => $content->image_url,
                 'title' => $content->title,
                 'description' => $content->description,
                 'sections' => $content->sections,
@@ -89,7 +89,7 @@ class EducationContentController extends Controller
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
             'description' => 'required|string',
-            'cover_image' => 'nullable|string|url',
+            'image_url' => 'nullable|string|url',
             'image' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp|max:10240', // 10MB max
             'sections' => 'required|array|min:1',
             'sections.*.heading' => 'required|string|max:255',
@@ -110,14 +110,14 @@ class EducationContentController extends Controller
 
         try {
             $data = $request->except(['image']);
-            $coverImageUrl = $request->input('cover_image');
+            $coverImageUrl = $request->input('image_url');
 
             // Handle image upload if provided
             if ($request->hasFile('image')) {
                 $coverImageUrl = $this->handleImageUpload($request->file('image'), 'education');
             }
 
-            $data['cover_image'] = $coverImageUrl;
+            $data['image_url'] = $coverImageUrl;
             $data['created_by_admin'] = auth()->id() ?? 1; // Default to admin ID 1 if not authenticated
             
             $content = EducationContent::create($data);
@@ -127,7 +127,7 @@ class EducationContentController extends Controller
                 'message' => 'Education content created successfully',
                 'data' => [
                     'id' => $content->id,
-                    'coverImage' => $content->cover_image,
+                    'coverImage' => $content->image_url,
                     'title' => $content->title,
                     'description' => $content->description,
                     'sections' => $content->sections,
@@ -155,7 +155,7 @@ class EducationContentController extends Controller
             'created_by_admin' => 'sometimes|exists:admin_users,id',
             'title' => 'sometimes|string|max:255',
             'description' => 'sometimes|string',
-            'cover_image' => 'nullable|string|url',
+            'image_url' => 'nullable|string|url',
             'image' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp|max:10240', // 10MB max
             'sections' => 'sometimes|array',
             'sections.*.heading' => 'required_with:sections|string|max:255',
@@ -179,7 +179,7 @@ class EducationContentController extends Controller
             // Handle image upload if provided
             if ($request->hasFile('image')) {
                 $coverImageUrl = $this->handleImageUpload($request->file('image'), 'education');
-                $updateData['cover_image'] = $coverImageUrl;
+                $updateData['image_url'] = $coverImageUrl;
             }
 
             $content->update($updateData);

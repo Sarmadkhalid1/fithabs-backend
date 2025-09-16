@@ -8,7 +8,7 @@ This endpoint provides comprehensive dashboard data including financial metrics,
 
 ### Get Dashboard Data
 
-```
+```use
 GET /api/v1/dashboard
 ```
 

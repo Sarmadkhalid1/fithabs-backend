@@ -13,7 +13,7 @@ class EducationContent extends Model
         'created_by_admin',
         'title',
         'description',
-        'cover_image',
+        'image_url',
         'sections',
         'category',
         'tags',

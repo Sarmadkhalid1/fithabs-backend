@@ -63,8 +63,11 @@ class ExerciseController extends Controller
     public function store(Request $request)
     {
         try {
-        // Create validation data without file fields to avoid Laravel's file validation
-        $validationData = $request->except(['video', 'image']);
+            // Log request size for debugging
+            \Log::info('Exercise creation request size: ' . strlen(file_get_contents('php://input')));
+            
+            // Create validation data without file fields to avoid Laravel's file validation
+            $validationData = $request->except(['video', 'image']);
         
         $validator = Validator::make($validationData, [
             'workout_id' => 'required|exists:workouts,id',

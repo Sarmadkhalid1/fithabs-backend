@@ -489,28 +489,28 @@ Route::prefix('v1')->group(function () {
         });
         
         // Coach management routes (admin only)
-        Route::get('/coaches', function (\Illuminate\Http\Request $request) {
+        Route::get('/admin/coaches', function (\Illuminate\Http\Request $request) {
             if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
                 return response()->json(['error' => 'Admin access required'], 403);
             }
             return app(\App\Http\Controllers\CoachController::class)->adminIndex($request);
         });
         
-        Route::post('/coaches', function (\Illuminate\Http\Request $request) {
+        Route::post('/admin/coaches', function (\Illuminate\Http\Request $request) {
             if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
                 return response()->json(['error' => 'Admin access required'], 403);
             }
             return app(\App\Http\Controllers\CoachController::class)->store($request);
         });
         
-        Route::put('/coaches/{coach}', function (\Illuminate\Http\Request $request, $coach) {
+        Route::put('/admin/coaches/{coach}', function (\Illuminate\Http\Request $request, $coach) {
             if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
                 return response()->json(['error' => 'Admin access required'], 403);
             }
             return app(\App\Http\Controllers\CoachController::class)->update($request, $coach);
         });
         
-        Route::delete('/coaches/{coach}', function (\Illuminate\Http\Request $request, $coach) {
+        Route::delete('/admin/coaches/{coach}', function (\Illuminate\Http\Request $request, $coach) {
             if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
                 return response()->json(['error' => 'Admin access required'], 403);
             }
@@ -518,28 +518,28 @@ Route::prefix('v1')->group(function () {
         });
         
         // Clinic management routes (admin only)
-        Route::get('/clinics', function (\Illuminate\Http\Request $request) {
+        Route::get('/admin/clinics', function (\Illuminate\Http\Request $request) {
             if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
                 return response()->json(['error' => 'Admin access required'], 403);
             }
             return app(\App\Http\Controllers\ClinicController::class)->adminIndex($request);
         });
         
-        Route::post('/clinics', function (\Illuminate\Http\Request $request) {
+        Route::post('/admin/clinics', function (\Illuminate\Http\Request $request) {
             if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
                 return response()->json(['error' => 'Admin access required'], 403);
             }
             return app(\App\Http\Controllers\ClinicController::class)->store($request);
         });
         
-        Route::put('/clinics/{clinic}', function (\Illuminate\Http\Request $request, $clinic) {
+        Route::put('/admin/clinics/{clinic}', function (\Illuminate\Http\Request $request, $clinic) {
             if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
                 return response()->json(['error' => 'Admin access required'], 403);
             }
             return app(\App\Http\Controllers\ClinicController::class)->update($request, $clinic);
         });
         
-        Route::delete('/clinics/{clinic}', function (\Illuminate\Http\Request $request, $clinic) {
+        Route::delete('/admin/clinics/{clinic}', function (\Illuminate\Http\Request $request, $clinic) {
             if (!$request->user() || !($request->user() instanceof \App\Models\AdminUser)) {
                 return response()->json(['error' => 'Admin access required'], 403);
             }

@@ -172,15 +172,14 @@ class DashboardController extends Controller
     private function calculateTotalEarnings()
     {
         // This would integrate with your payment system
-        // For now, returning a calculated value based on users and subscriptions
+        // For now, returning a calculated value based on users
         $totalUsers = User::count();
-        $premiumUsers = User::where('subscription_type', 'premium')->count();
         
-        // Assuming $19.99/month for premium users and $9.99 for basic
-        $premiumRevenue = $premiumUsers * 19.99;
-        $basicRevenue = ($totalUsers - $premiumUsers) * 9.99;
+        // Assuming average subscription price of $15.99/month per user
+        // This is a placeholder calculation until subscription system is implemented
+        $averageMonthlyRevenue = $totalUsers * 15.99;
         
-        return $premiumRevenue + $basicRevenue;
+        return $averageMonthlyRevenue;
     }
 
     private function calculateLastMonthEarnings()
