@@ -610,7 +610,7 @@ dashboardManager.renderDashboard();
   "error": "Database connection error"
 }
 ```
-
+warriors
 ## Key Features
 
 ### Financial Metrics
